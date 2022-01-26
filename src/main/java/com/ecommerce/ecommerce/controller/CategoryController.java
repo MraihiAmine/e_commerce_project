@@ -3,56 +3,75 @@ package com.ecommerce.ecommerce.controller;
 import com.ecommerce.ecommerce.entity.Category;
 import com.ecommerce.ecommerce.exception.RessourceNotFoundException;
 import com.ecommerce.ecommerce.repository.CategoryRepository;
+import com.ecommerce.ecommerce.service.CategoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import javax.persistence.GeneratedValue;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.IOException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 @CrossOrigin(origins = "http://localhost:4200")
 @RestController
 @RequestMapping("/api")
 public class CategoryController {
     @Autowired
-    CategoryRepository categoryRepository;
+    CategoryService categoryService;
 
+    @GetMapping("/categories/code")
+    public int getCode() {
+        System.out.println("get numbers");
+        int x = categoryService.number();
+        return (x==0 ? 0 : categoryService.max());
+    }
     @GetMapping("/categories")
-    public List<Category> getAllCategories() {
-        System.out.println("Get all categories");
-        List<Category> categories = new ArrayList<>();
-        //:: Method references allow you to call
-        // a method by mentioning its name.
-        categoryRepository.findAll().forEach(categories::add);
-        return categories;
+    public List<Category> listCategories(){
+        return categoryService.getAll();
     }
-
-    @GetMapping("/categories/{id}")
-    public ResponseEntity<Category> geCategoryById(
-            @PathVariable(value = "id") Long categoryId) throws
-            RessourceNotFoundException {
-        Category category = categoryRepository.findById(categoryId).orElseThrow(() -> new RessourceNotFoundException(
-                "Category for this id : " + categoryId  + "is not found"));
-        return ResponseEntity.ok().body(category);
+    @GetMapping("/categories/{code}")
+    public ResponseEntity<Category>
+    getCategoryById(@PathVariable String code) {
+        Optional<Category> category = categoryService.findByCode(code);
+        return category.map(ResponseEntity::ok).orElseGet(
+                ()->ResponseEntity.notFound().build());
     }
-
     @PostMapping("/categories")
-    public Category createCategory(@Valid @RequestBody Category category){
-        return categoryRepository.save(category);
+    public Long save(@RequestBody Category category) {
+        return categoryService.save(category);
+    }
+    @PutMapping("/categories/{code}")
+    public void update(@PathVariable String code, @RequestBody Category category){
+        Optional<Category> category1 = categoryService.findByCode(code);
+        if (category1.isPresent()){
+            categoryService.update(code, category);
+        }
+        else {
+            categoryService.save(category);
+        }
+    }
+    @DeleteMapping("/categories/{code}")
+    public void delete(@PathVariable String code){
+        categoryService.delete(code);
     }
 
-    @DeleteMapping("/caltegories/{id}")
-    public Map<String, Boolean> deleteCategory(@PathVariable(value = "id") Long categoryId)
-        throws RessourceNotFoundException{
-        Category category = categoryRepository.findById(categoryId).orElseThrow(() -> new RessourceNotFoundException(
-                "Category for this id : " + categoryId  + "is not found"));
-        categoryRepository.delete(category);
-        Map<String,Boolean> response = new HashMap<>();
-        response.put("deleted", Boolean.TRUE);
-        return response;
-    }
+    /*@GetMapping("/users/export/excel")
+    public void exportToExcel(HttpServletResponse response) throws IOException {
+        response.setContentType("application/octet-stream");
+        DateFormat dateFormatter =
+                new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss");
+        String currentDateTime = dateFormatter.format(new Date());
+        String headerKey = "Content-Disposition";
+        String headerValue = "attachment; filename = categories_"
+                + currentDateTime + ".xlsx";
+        response.setHeader(headerKey,headerValue);
+        List<Category> categories = categoryService.getAll();
+        CategoryExcel categoryExcel = new CategoryExcel(categories);
+        categoryExcel.export(response);
+    }*/
 }
